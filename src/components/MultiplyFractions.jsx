@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { RefreshCw } from 'lucide-react';
 
-const MultiplyFractions = ({ numerator, denominator, whole = null, isCompleted = false }) => {
+const Fraction = ({ numerator, denominator, whole = null, isCompleted = false }) => {
   return (
     <span className="inline-flex items-center">
       {whole !== null && <span className="mr-1">{whole}</span>}
@@ -40,7 +40,7 @@ const calculateImproperFraction = (mixed) => {
   };
 };
 
-const MixedNumbersLesson = () => {
+const MultiplyFractions = () => {
   const [number1, setNumber1] = useState(generateMixedNumber());
   const [number2, setNumber2] = useState(generateMixedNumber());
   const [currentStep, setCurrentStep] = useState(1);
