@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -40,20 +40,88 @@ const calculateImproperFraction = (mixed) => {
   };
 };
 
+// Helper function to render answer in visual format
+const renderAnswer = (answer, stepIndex) => {
+  if (stepIndex === 0 || stepIndex === 1) {
+    // Steps 1 & 2: improper fractions
+    const [numerator, denominator] = answer.split('/');
+    return (
+      <span className="inline-flex items-center">
+        <span className="inline-flex flex-col items-center mx-1 text-sm">
+          <span className="text-center">{numerator}</span>
+          <span className="border-t w-full min-w-[0.8em] border-green-600"></span>
+          <span className="text-center">{denominator}</span>
+        </span>
+      </span>
+    );
+  } else if (stepIndex === 2) {
+    // Step 3: improper fraction
+    const [numerator, denominator] = answer.split('/');
+    return (
+      <span className="inline-flex items-center">
+        <span className="inline-flex flex-col items-center mx-1 text-sm">
+          <span className="text-center">{numerator}</span>
+          <span className="border-t w-full min-w-[0.8em] border-green-600"></span>
+          <span className="text-center">{denominator}</span>
+        </span>
+      </span>
+    );
+  } else {
+    // Step 4: mixed number
+    const parts = answer.split(' ');
+    if (parts.length === 2) {
+      const [whole, fraction] = parts;
+      const [numerator, denominator] = fraction.split('/');
+      return (
+        <span className="inline-flex items-center">
+          <span className="mr-1">{whole}</span>
+          <span className="inline-flex flex-col items-center mx-1 text-sm">
+            <span className="text-center">{numerator}</span>
+            <span className="border-t w-full min-w-[0.8em] border-green-600"></span>
+            <span className="text-center">{denominator}</span>
+          </span>
+        </span>
+      );
+    }
+    return answer;
+  }
+};
+
 const MultiplyFractions = () => {
+  // State management
   const [number1, setNumber1] = useState(generateMixedNumber());
   const [number2, setNumber2] = useState(generateMixedNumber());
-  const [currentStep, setCurrentStep] = useState(1);
-  const [answers, setAnswers] = useState({ step1First: '', step1Second: '', step2: '', step3: '' });
-  const [hasError, setHasError] = useState({
-    step1First: false,
-    step1Second: false,
-    step2: false,
-    step3: false
-  });
-  const [completedSteps, setCompletedSteps] = useState([]);
   const [showSteps, setShowSteps] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [userInputs, setUserInputs] = useState({
+    step1: '',
+    step2: '',
+    step3: '',
+    step4: ''
+  });
+  const [inputStatus, setInputStatus] = useState({
+    step1: null,
+    step2: null,
+    step3: null,
+    step4: null
+  });
+  const [stepCompleted, setStepCompleted] = useState({
+    step1: false,
+    step2: false,
+    step3: false,
+    step4: false
+  });
+  const [stepSkipped, setStepSkipped] = useState({
+    step1: false,
+    step2: false,
+    step3: false,
+    step4: false
+  });
+  const [steps, setSteps] = useState([]);
+  const [showNavigationButtons, setShowNavigationButtons] = useState(false);
+  const [navigationDirection, setNavigationDirection] = useState(null);
 
+  // Calculate values
   const improper1 = calculateImproperFraction(number1);
   const improper2 = calculateImproperFraction(number2);
   const multipliedNumerator = improper1.numerator * improper2.numerator;
@@ -61,315 +129,410 @@ const MultiplyFractions = () => {
   const finalWhole = Math.floor(multipliedNumerator / multipliedDenominator);
   const finalNumerator = multipliedNumerator % multipliedDenominator;
 
-  const checkStep = (step) => {
-    let isCorrect = false;
-    
-    switch(step) {
-      case 1:
-        const firstAnswer = `${improper1.numerator}/${improper1.denominator}`;
-        const secondAnswer = `${improper2.numerator}/${improper2.denominator}`;
-        const isFirstCorrect = answers.step1First.replace(/\s/g, '') === firstAnswer.replace(/\s/g, '');
-        const isSecondCorrect = answers.step1Second.replace(/\s/g, '') === secondAnswer.replace(/\s/g, '');
-        isCorrect = isFirstCorrect && isSecondCorrect;
-        setHasError({
-          ...hasError,
-          step1First: !isFirstCorrect,
-          step1Second: !isSecondCorrect
-        });
-        break;
-      case 2:
-        const answer2 = `${multipliedNumerator}/${multipliedDenominator}`;
-        isCorrect = answers.step2.replace(/\s/g, '') === answer2.replace(/\s/g, '');
-        setHasError(prev => ({ ...prev, step2: !isCorrect }));
-        break;
-      case 3:
-        const answer3 = `${finalWhole} ${finalNumerator}/${multipliedDenominator}`;
-        isCorrect = answers.step3.replace(/\s/g, '') === answer3.replace(/\s/g, '');
-        setHasError(prev => ({ ...prev, step3: !isCorrect }));
-        break;
+  // Show navigation buttons when all steps are completed
+  useEffect(() => {
+    if (stepCompleted.step1 && stepCompleted.step2 && stepCompleted.step3 && stepCompleted.step4) {
+      setShowNavigationButtons(true);
     }
+  }, [stepCompleted]);
 
-    if (isCorrect) {
-      setCompletedSteps(prev => [...prev, step]);
-      setCurrentStep(step + 1);
-    }
-  };
-
-  const handleInputChange = (field, value) => {
-    setAnswers(prev => ({ ...prev, [field]: value }));
-    setHasError(prev => ({ ...prev, [field]: undefined }));
-  };
-
-  const skipStep = (step) => {
-    setCompletedSteps(prev => [...prev, step]);
-    setCurrentStep(step + 1);
-  };
-
+  // Generate new problem
   const generateNewProblem = () => {
     setNumber1(generateMixedNumber());
     setNumber2(generateMixedNumber());
-    setCurrentStep(1);
-    setAnswers({ step1First: '', step1Second: '', step2: '', step3: '' });
-    setHasError({ step1First: false, step1Second: false, step2: false, step3: false });
-    setCompletedSteps([]);
     setShowSteps(false);
+    setCurrentStepIndex(0);
+    setUserInputs({ step1: '', step2: '', step3: '', step4: '' });
+    setStepCompleted({ step1: false, step2: false, step3: false, step4: false });
+    setInputStatus({ step1: null, step2: null, step3: null, step4: null });
+    setShowNavigationButtons(false);
+  };
+
+  // Calculate steps
+  const calculateSteps = () => {
+    const newSteps = [
+      {
+        main: 'Step 1: Convert first mixed number to improper fraction',
+        formula: (
+          <span className="inline-flex items-center">
+            <span className="mr-1">{number1.whole}</span>
+            <span className="inline-flex flex-col items-center mx-1 text-sm">
+              <span className="text-center">{number1.numerator}</span>
+              <span className="border-t w-full min-w-[0.8em] border-black"></span>
+              <span className="text-center">{number1.denominator}</span>
+            </span>
+            <span className="mx-2">= ?</span>
+          </span>
+        ),
+        answer: `${improper1.numerator}/${improper1.denominator}`
+      },
+      {
+        main: 'Step 2: Convert second mixed number to improper fraction',
+        formula: (
+          <span className="inline-flex items-center">
+            <span className="mr-1">{number2.whole}</span>
+            <span className="inline-flex flex-col items-center mx-1 text-sm">
+              <span className="text-center">{number2.numerator}</span>
+              <span className="border-t w-full min-w-[0.8em] border-black"></span>
+              <span className="text-center">{number2.denominator}</span>
+            </span>
+            <span className="mx-2">= ?</span>
+          </span>
+        ),
+        answer: `${improper2.numerator}/${improper2.denominator}`
+      },
+      {
+        main: 'Step 3: Multiply numerators and denominators',
+        formula: (
+          <span className="inline-flex items-center">
+            <span className="inline-flex flex-col items-center mx-1 text-sm">
+              <span className="text-center">{improper1.numerator}</span>
+              <span className="border-t w-full min-w-[0.8em] border-black"></span>
+              <span className="text-center">{improper1.denominator}</span>
+            </span>
+            <span className="mx-2">×</span>
+            <span className="inline-flex flex-col items-center mx-1 text-sm">
+              <span className="text-center">{improper2.numerator}</span>
+              <span className="border-t w-full min-w-[0.8em] border-black"></span>
+              <span className="text-center">{improper2.denominator}</span>
+            </span>
+            <span className="mx-2">= ?</span>
+          </span>
+        ),
+        answer: `${multipliedNumerator}/${multipliedDenominator}`
+      },
+      {
+        main: 'Step 4: Convert to mixed number',
+        formula: (
+          <span className="inline-flex items-center">
+            <span className="inline-flex flex-col items-center mx-1 text-sm">
+              <span className="text-center">{multipliedNumerator}</span>
+              <span className="border-t w-full min-w-[0.8em] border-black"></span>
+              <span className="text-center">{multipliedDenominator}</span>
+            </span>
+            <span className="mx-2">= ?</span>
+          </span>
+        ),
+        answer: `${finalWhole} ${finalNumerator}/${multipliedDenominator}`
+      }
+    ];
+
+    setSteps(newSteps);
+    setShowSteps(true);
+    setUserInputs({ step1: '', step2: '', step3: '', step4: '' });
+    setCurrentStepIndex(0);
+    setStepCompleted({ step1: false, step2: false, step3: false, step4: false });
+    setInputStatus({ step1: null, step2: null, step3: null, step4: null });
+    setShowNavigationButtons(false);
+  };
+
+  // Handle step input change
+  const handleStepInputChange = (e, step) => {
+    setUserInputs({ ...userInputs, [step]: e.target.value });
+    setInputStatus({ ...inputStatus, [step]: null });
+  };
+
+  // Skip step
+  const skipStep = (step) => {
+    setUserInputs({ ...userInputs, [step]: steps[currentStepIndex].answer });
+    setInputStatus({ ...inputStatus, [step]: 'correct' });
+    setStepCompleted(prev => ({ ...prev, [step]: true }));
+    setStepSkipped(prev => ({ ...prev, [step]: true }));
+  };
+
+  // Check step answer
+  const checkStep = (step) => {
+    const correctAnswer = steps[currentStepIndex].answer;
+    const userAnswer = userInputs[step];
+    const isCorrect = userAnswer.replace(/\s/g, '') === correctAnswer.replace(/\s/g, '');
+
+    setInputStatus({ ...inputStatus, [step]: isCorrect ? 'correct' : 'incorrect' });
+    
+    if (isCorrect) {
+      setStepCompleted(prev => ({ ...prev, [step]: true }));
+      setStepSkipped(prev => ({ ...prev, [step]: false }));
+    }
+  };
+
+  // Handle navigation
+  const handleNavigateHistory = (direction) => {
+    setNavigationDirection(direction);
+    
+    if (direction === 'back' && currentStepIndex > 0) {
+      setCurrentStepIndex(prev => prev - 1);
+    } else if (direction === 'forward' && currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(prev => prev + 1);
+    }
+
+    setTimeout(() => {
+      setNavigationDirection(null);
+    }, 300);
   };
 
   return (
-    <div className="bg-gray-100 p-8 w-full max-w-4xl mx-auto">
-      <Card className="w-full shadow-md bg-white">
-        <div className="bg-sky-50 p-6 rounded-t-lg">
-          <h1 className="text-sky-900 text-2xl font-bold">Mixed Numbers Multiplication</h1>
-          <p className="text-sky-800">Learn how to multiply mixed numbers step by step!</p>
+    <>
+      <style>{`
+        @property --r {
+          syntax: '<angle>';
+          inherits: false;
+          initial-value: 0deg;
+        }
+
+        .glow-button { 
+          min-width: auto; 
+          height: auto; 
+          position: relative; 
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+          transition: all .3s ease;
+          padding: 7px;
+        }
+
+        .glow-button::before {
+          content: "";
+          display: block;
+          position: absolute;
+          background: #fff;
+          inset: 2px;
+          border-radius: 4px;
+          z-index: -2;
+        }
+
+        .simple-glow {
+          background: conic-gradient(
+            from var(--r),
+            transparent 0%,
+            rgb(0, 255, 132) 2%,
+            rgb(0, 214, 111) 8%,
+            rgb(0, 174, 90) 12%,
+            rgb(0, 133, 69) 14%,
+            transparent 15%
+          );
+          animation: rotating 3s linear infinite;
+          transition: animation 0.3s ease;
+        }
+
+        .simple-glow.stopped {
+          animation: none;
+          background: none;
+        }
+
+        @keyframes rotating {
+          0% {
+            --r: 0deg;
+          }
+          100% {
+            --r: 360deg;
+          }
+        }
+
+        .nav-button {
+          opacity: 1;
+          cursor: default !important;
+          position: relative;
+          z-index: 2;
+          outline: 2px white solid;
+        }
+
+        .nav-button-orbit {
+          position: absolute;
+          inset: -4px;
+          border-radius: 50%;
+          background: conic-gradient(
+            from var(--r),
+            transparent 0%,
+            rgb(0, 255, 132) 2%,
+            rgb(0, 214, 111) 8%,
+            rgb(0, 174, 90) 12%,
+            rgb(0, 133, 69) 14%,
+            transparent 15%
+          );
+          animation: rotating 3s linear infinite;
+          z-index: 0;
+        }
+
+        .nav-button-orbit::before {
+          content: "";
+          position: absolute;
+          inset: 2px;
+          background: transparent;
+          border-radius: 50%;
+          z-index: 0;
+        }
+
+        .nav-button svg {
+          position: relative;
+          z-index: 1;
+        }
+      `}</style>
+      <div className="w-[500px] h-auto mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg overflow-hidden">
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-[#5750E3] text-sm font-medium select-none">Mixed Numbers Multiplication</h2>
+            <Button 
+              onClick={generateNewProblem}
+              className="bg-[#008545] hover:bg-[#00703d] text-white px-4 h-[42px] flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              New Problem
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="text-center text-lg font-mono bg-gray-50 p-4 rounded-md border border-gray-200">
+              <MixedNumber whole={number1.whole} numerator={number1.numerator} denominator={number1.denominator} /> 
+              × <MixedNumber whole={number2.whole} numerator={number2.numerator} denominator={number2.denominator} />
+            </div>
+
+            <div className={`glow-button ${!showSteps ? 'simple-glow' : 'simple-glow stopped'}`}>
+              <button 
+                onClick={calculateSteps}
+                className="w-full bg-[#008545] hover:bg-[#00703d] text-white text-sm py-2 rounded"
+              >
+                Solve Step by Step
+              </button>
+            </div>
+          </div>
         </div>
 
-        <CardContent className="space-y-6 pt-6">
-          <div className="bg-blue-50 p-4 rounded border border-blue-200">
-            <h2 className="text-blue-900 font-bold mb-2">What are Mixed Numbers?</h2>
-            <p className="text-blue-600">
-              Mixed numbers are whole numbers combined with a fraction, like <MixedNumber whole={2} numerator={1} denominator={2} /> or <MixedNumber whole={3} numerator={3} denominator={4} />. 
-              To multiply mixed numbers, we first need to convert them into improper fractions, then multiply the numerators and denominators, 
-              and finally convert back to a mixed number if necessary.
-            </p>
-          </div>
+        {showSteps && (
+          <div className="p-4 bg-gray-50">
+            <div className="space-y-2">
+              <h3 className="text-[#5750E3] text-sm font-medium mb-2">
+                Steps to multiply mixed numbers:
+              </h3>
+              <div className="space-y-4">
+                <div className="w-full p-2 mb-1 bg-white border border-[#5750E3]/30 rounded-md">
+                  <p className="text-sm">{steps[currentStepIndex].main}</p>
+                  <pre className="text-sm whitespace-pre-wrap mt-1">{steps[currentStepIndex].formula}</pre>
+                  {stepCompleted[`step${currentStepIndex + 1}`] && (
+                    <p className="text-sm text-[#008545] font-medium mt-1">
+                      = {renderAnswer(steps[currentStepIndex].answer, currentStepIndex)}
+                    </p>
+                  )}
+                  {!stepCompleted[`step${currentStepIndex + 1}`] && (
+                    <div className="flex items-center space-x-1 mt-2">
+                      <input
+                        type="text"
+                        value={userInputs[`step${currentStepIndex + 1}`]}
+                        onChange={(e) => handleStepInputChange(e, `step${currentStepIndex + 1}`)}
+                        placeholder="Enter Answer"
+                        className={`w-full text-sm p-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#5750E3] ${
+                          inputStatus[`step${currentStepIndex + 1}`] === 'correct'
+                            ? 'border-green-500'
+                            : inputStatus[`step${currentStepIndex + 1}`] === 'incorrect'
+                            ? 'border-yellow-500'
+                            : 'border-gray-300'
+                        }`}
+                      />
+                      <div className="glow-button simple-glow">
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => checkStep(`step${currentStepIndex + 1}`)} 
+                            className="bg-[#008545] hover:bg-[#00703d] text-white text-sm px-4 py-2 rounded-md min-w-[80px]"
+                          >
+                            Check
+                          </button>
+                          <button 
+                            onClick={() => skipStep(`step${currentStepIndex + 1}`)} 
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-md min-w-[80px]"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {stepCompleted[`step${currentStepIndex + 1}`] && !showNavigationButtons && (
+                    <div className="flex items-center gap-4 mt-2 justify-end">
+                      {!stepSkipped[`step${currentStepIndex + 1}`] && (
+                        <span className="text-green-600 font-bold select-none">Great Job!</span>
+                      )}
+                      {currentStepIndex < steps.length - 1 && (
+                        <div className="glow-button simple-glow">
+                          <button 
+                            onClick={() => {
+                              if (currentStepIndex < steps.length - 1) {
+                                setCurrentStepIndex(prev => prev + 1);
+                              }
+                            }}
+                            className="bg-[#008545] hover:bg-[#00703d] text-white text-sm px-4 py-2 rounded-md min-w-[80px]"
+                          >
+                            Continue
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h2 className="text-xl font-bold mb-4">Example</h2>
-            <Card className="border border-gray-200">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-lg font-bold pt-4">
-                  <MixedNumber whole={2} numerator={3} denominator={4} /> × <MixedNumber whole={3} numerator={1} denominator={6} />
-                </p>
-                <div className="space-y-2">
-                  <p className="font-medium">1. Convert to improper fractions:</p>
-                  <div className="ml-6 flex items-center gap-2">
-                    <MixedNumber whole={2} numerator={3} denominator={4} />
-                    <span className="inline-block">=</span>
-                    <Fraction numerator={11} denominator={4} />
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <div
+                    className="nav-orbit-wrapper"
+                    style={{
+                      position: 'relative',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      visibility: showNavigationButtons && currentStepIndex > 0 ? 'visible' : 'hidden',
+                      opacity: showNavigationButtons && currentStepIndex > 0 ? 1 : 0,
+                      pointerEvents: showNavigationButtons && currentStepIndex > 0 ? 'auto' : 'none',
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  >
+                    <div className="nav-button-orbit"></div>
+                    <div style={{ position: 'absolute', width: '32px', height: '32px', borderRadius: '50%', background: 'white', zIndex: 1 }}></div>
+                    <button
+                      onClick={() => handleNavigateHistory('back')}
+                      className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/20 text-[#008545] hover:bg-[#008545]/30 relative z-50`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 18l-6-6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
-                  <div className="ml-6 flex items-center gap-2">
-                    <MixedNumber whole={3} numerator={1} denominator={6} />
-                    <span className="inline-block">=</span>
-                    <Fraction numerator={19} denominator={6} />
-                  </div>
-                  <p className="font-medium mt-4">2. Multiply numerators and denominators:</p>
-                  <div className="ml-6">
-                    <Fraction numerator="11 × 19" denominator="4 × 6" />
-                  </div>
-                  <p className="font-medium mt-4">3. Simplify:</p>
-                  <div className="ml-6 flex items-center gap-2">
-                    <Fraction numerator={209} denominator={24} />
-                    <span className="inline-block">=</span>
-                    <MixedNumber whole={8} numerator={17} denominator={24} />
+                  <span className="text-sm text-gray-500 min-w-[100px] text-center">
+                    Step {currentStepIndex + 1} of {steps.length}
+                  </span>
+                  <div
+                    className="nav-orbit-wrapper"
+                    style={{
+                      position: 'relative',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      visibility: showNavigationButtons && currentStepIndex < steps.length - 1 ? 'visible' : 'hidden',
+                      opacity: showNavigationButtons && currentStepIndex < steps.length - 1 ? 1 : 0,
+                      pointerEvents: showNavigationButtons && currentStepIndex < steps.length - 1 ? 'auto' : 'none',
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  >
+                    <div className="nav-button-orbit"></div>
+                    <div style={{ position: 'absolute', width: '32px', height: '32px', borderRadius: '50%', background: 'white', zIndex: 1 }}></div>
+                    <button
+                      onClick={() => handleNavigateHistory('forward')}
+                      className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/20 text-[#008545] hover:bg-[#008545]/30 relative z-50`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-purple-900 font-bold">Practice Time!</h2>
-              <Button 
-                onClick={generateNewProblem}
-                className="bg-sky-500 hover:bg-sky-600 text-white px-4 flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                New Problem
-              </Button>
-            </div>
-
-            <div className="text-center text-2xl mb-4">
-              <span className="font-mono">
-                <MixedNumber whole={number1.whole} numerator={number1.numerator} denominator={number1.denominator} /> 
-                × <MixedNumber whole={number2.whole} numerator={number2.numerator} denominator={number2.denominator} />
-              </span>
-            </div>
-
-            <Button 
-              onClick={() => setShowSteps(true)}
-              className="w-full bg-blue-950 hover:bg-blue-900 text-white py-3"
-            >
-              Solve Step by Step
-            </Button>
-
-            {showSteps && (
-              <div className="bg-purple-50 p-4 rounded-lg mt-4">
-                <p className="mb-4">1. Convert each mixed number to an improper fraction:</p>
-                {completedSteps.includes(1) ? (
-                  <div className="ml-6 text-green-600 font-bold mb-4">
-                    <div className="space-y-2">
-                      <div>
-                        <Fraction 
-                          numerator={improper1.numerator} 
-                          denominator={improper1.denominator}
-                          isCompleted={true} 
-                        />
-                      </div>
-                      <div>
-                        <Fraction 
-                          numerator={improper2.numerator} 
-                          denominator={improper2.denominator}
-                          isCompleted={true} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4 mb-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <MixedNumber whole={number1.whole} numerator={number1.numerator} denominator={number1.denominator} />
-                        <span>=</span>
-                        {answers.step1First === `${improper1.numerator}/${improper1.denominator}` && hasError.step1First === false && hasError.step1First !== undefined ? (
-                          <span className="text-green-600 font-bold">
-                            <Fraction 
-                              numerator={improper1.numerator} 
-                              denominator={improper1.denominator}
-                              isCompleted={true} 
-                            />
-                          </span>
-                        ) : (
-                          <Input
-                            type="text"
-                            placeholder="Enter as: a/b"
-                            value={answers.step1First}
-                            onChange={(e) => handleInputChange('step1First', e.target.value)}
-                            className={`w-24 ${hasError.step1First ? 'border-red-500' : ''}`}
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MixedNumber whole={number2.whole} numerator={number2.numerator} denominator={number2.denominator} />
-                        <span>=</span>
-                        {answers.step1Second === `${improper2.numerator}/${improper2.denominator}` && hasError.step1Second === false && hasError.step1Second !== undefined ? (
-                          <span className="text-green-600 font-bold">
-                            <Fraction 
-                              numerator={improper2.numerator} 
-                              denominator={improper2.denominator}
-                              isCompleted={true} 
-                            />
-                          </span>
-                        ) : (
-                          <Input
-                            type="text"
-                            placeholder="Enter as: a/b"
-                            value={answers.step1Second}
-                            onChange={(e) => handleInputChange('step1Second', e.target.value)}
-                            className={`w-24 ${hasError.step1Second ? 'border-red-500' : ''}`}
-                          />
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <Button 
-                        onClick={() => checkStep(1)}
-                        className="bg-blue-400 hover:bg-blue-500"
-                      >
-                        Check
-                      </Button>
-                      <Button
-                        onClick={() => skipStep(1)}
-                        className="bg-gray-400 hover:bg-gray-500 text-white"
-                      >
-                        Skip
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {completedSteps.includes(1) && (
-                  <>
-                    <p className="mb-4">2. Multiply the numerators and denominators:</p>
-                    {completedSteps.includes(2) ? (
-                      <div className="ml-6 text-green-600 font-bold mb-4">
-                        <Fraction 
-                          numerator={multipliedNumerator} 
-                          denominator={multipliedDenominator}
-                          isCompleted={true}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-4 mb-4">
-                        <Input
-                          type="text"
-                          placeholder="Enter as: a/b"
-                          value={answers.step2}
-                          onChange={(e) => handleInputChange('step2', e.target.value)}
-                          className={`w-48 ${hasError.step2 ? 'border-red-500' : ''}`}
-                        />
-                        <Button 
-                          onClick={() => checkStep(2)}
-                          className="bg-blue-400 hover:bg-blue-500"
-                        >
-                          Check
-                        </Button>
-                        <Button
-                          onClick={() => skipStep(2)}
-                          className="bg-gray-400 hover:bg-gray-500 text-white"
-                        >
-                          Skip
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {completedSteps.includes(2) && (
-                  <>
-                    <p className="mb-4">3. Convert to a mixed number:</p>
-                    {completedSteps.includes(3) ? (
-                      <>
-                        <div className="ml-6 text-green-600 font-bold mb-4">
-                          <MixedNumber 
-                            whole={finalWhole} 
-                            numerator={finalNumerator} 
-                            denominator={multipliedDenominator}
-                            isCompleted={true}
-                          />
-                        </div>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-                          <h3 className="text-green-800 text-xl font-bold">Great Work!</h3>
-                          <p className="text-green-700">
-                            You've successfully multiplied the mixed numbers!
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-4 mb-4">
-                        <Input
-                          type="text"
-                          placeholder="Enter as: a b/c"
-                          value={answers.step3}
-                          onChange={(e) => handleInputChange('step3', e.target.value)}
-                          className={`w-48 ${hasError.step3 ? 'border-red-500' : ''}`}
-                        />
-                        <Button 
-                          onClick={() => checkStep(3)}
-                          className="bg-blue-400 hover:bg-blue-500"
-                        >
-                          Check
-                        </Button>
-                        <Button
-                          onClick={() => skipStep(3)}
-                          className="bg-gray-400 hover:bg-gray-500 text-white"
-                        >
-                          Skip
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
               </div>
-            )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
-      <p className="text-center text-gray-600 mt-4">
-        Practice makes perfect! Keep solving mixed number multiplication problems to improve your skills.
-      </p>
-    </div>
+        )}
+      </div>
+    </>
   );
 };
 
